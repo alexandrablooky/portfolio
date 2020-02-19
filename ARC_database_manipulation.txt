@@ -1,0 +1,64 @@
+library(reshape2)
+library(ggplot2)
+library(lemon)
+
+mydata <- read.csv('Test5.csv', header = TRUE)
+melted<-melt(mydata, value.name = "value",id.var="score",   na.rm = T)
+lab<-c("Chemical purity","Parent/Metabolite Information","Relevant biological information","Body weight",
+       "Route","Test duration", "Dosing","Frequency of sampling", "Tissue tested", "Vehicle used", "Dose", "sample size n",
+       "sampling time points", "control used","Pharmacokinetic model", "Indication of Toxicity", "Clearance reported", 
+       "Kel/k10/K12/K21", "Half-life reported", "AUC", "bioavailability F", "C0/Cmax", "MRT/MAT/Tmax", "alpha, beta, gamma phase constants", 
+       "intercepts A, B, C", "volume of distribution", "ka or t1/2a", "Publication", "Clarity of rate units")
+supp<-ggplot(data=melted, aes(as.factor(score), y=value))+geom_bar(stat="identity")+ facet_wrap( vars(variable),nrow = 3,ncol = 10,scales = "free_x")+  #,labeller = labeller(variable=lab)
+    xlab("Confidence Score")+
+    ylab("Count")+
+    theme_bw()+
+    scale_y_continuous()+
+    theme(panel.grid.major =  element_blank(),
+          panel.grid.minor = element_blank(), 
+          axis.line = element_line(colour = "black"),
+          axis.title=element_text(size=15),
+          strip.text.x  = element_text(size = 11),
+          axis.text=element_text(size=12),
+          legend.title = element_blank(),legend.position = c(0.1,0.9),
+          legend.background = element_rect(size=0.5, linetype="solid",colour ="black"), 
+          legend.text=element_text(size=12))
+
+
+setwd("~/Box Sync/Professional/Arnot Research/biotransformation/Analysis & QAQC/R")
+library(RMySQL)
+username<-'username'
+pass<-'password'
+db<-'databasename'
+url<-'dburl'
+mydb = dbConnect(MySQL(), user=username, password=pass, dbname=db,host=url)
+mydata<-dbGetQuery(mydb, 'select record_id,qaqc.criterion_id, qaqc.criterion_name, max(score) as "score" from qaqc 
+                                        group by record_id, qaqc.criterion_id order by qaqc.criterion_id ASC')
+library(reshape2)
+mydata$score<-as.numeric(mydata$score)
+mydata$record_id<-as.numeric(mydata$record_id)
+pivot<-dcast(mydata,record_id~criterion_name,value.var="score",fun.aggregate = sum,na.rm=TRUE)
+dbWriteTable(mydb,"qaqc_aggregate",pivot,overwrite=T,row.names=F)
+dbDisconnect(mydb)
+
+
+library(readxl)
+qc_scores <- read_excel("qaqc_vivo.xlsx")
+library(reshape2)
+melted<-melt(qc_scores, na.rm = TRUE, id.vars="record_id")
+#write.csv(melted,"melted.csv", row.names = TRUE)
+library(RMySQL)
+username<-'username'
+pass<-'password'
+db<-'databasename'
+url<-'dburl'
+mydb = dbConnect(MySQL(), user=username, password=pass, dbname=db,host=url)
+library(reshape2)
+dbWriteTable(mydb,"qaqc_vivo",melted,overwrite=T)
+mydata<-dbGetQuery(mydb, 'insert into qaqc(record_id, data_type_id, criterion_name, score) select   record_id, 102, `variable`, max(`value`) as "score" from qaqc_vivo 
+                   group by record_id, `variable`')
+
+dbDisconnect(mydb)
+
+
+

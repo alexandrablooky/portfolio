@@ -1,0 +1,78 @@
+#code created on March 10,2016 
+#code last updated on March 11, 2016
+#Versioning 1.3
+#work for Arnot Research and consulting 
+#Project name: IVIVE biotransformation database
+
+ 
+#code to extract and format pubmed references from ncbi through R.
+#set local directory
+setwd("C:/Users/maad scientist/OneDrive/Code/R")
+#import data (the list of publications)into R. 
+embl_ref=read.csv("EMBL Pubmed Query.csv")
+
+#Accessing the library RISmed
+library("RISmed") 
+#create function to execute query: Accessing NCBI
+getPubMedRef.mc<-function(query){    
+    res_search <- EUtilsSummary(query, type='esearch', db='pubmed')
+    res_records<- EUtilsGet(res_search)
+    res<-data.frame(cbind(PMID(res_records),
+                          YearPpublish(res_records),
+                          Author(res_records),                
+                          ISSN(res_records),                
+                          Title(res_records),
+                          ArticleTitle(res_records),
+                          AbstractText(res_records),
+                          Affiliation(res_records),
+                          Language(res_records),
+                          PublicationType(res_records),
+                          MedlineTA(res_records),
+                          NlmUniqueID(res_records),
+                          ISSNLinking(res_records),
+                          PublicationStatus(res_records),
+                          ArticleId(res_records),
+                          Issue(res_records),
+                          ISOAbbreviation(res_records),
+                          MedlinePgn(res_records),
+                          Country(res_records)))
+    
+    res<-as.data.frame(res)
+    	#column names
+	colnames(res)<-c("PMID",
+                     "Year",
+                     "Author",
+                     "ISSN",
+                     "Title",
+                     "ArticleTitle",
+                     "AbstractText",
+                     "Affiliation",
+                     "Language",
+                     "PublicationType",
+                     "MedlineTA",
+                     "NlmUniqueID",
+                     "ISSNLinking",
+                     "PublicationStatus",
+                     "ArticleId",
+                     "Issue",
+                     "ISOAbbreviation",
+                     "MedlinePgn",
+                     "Country")    
+    rownames(res)<-res$PMID
+    return(res)     
+	}
+
+#number of refs in my embl library (embl_ref)
+numberref<-nrow(embl_ref)
+combined<-list()
+#for each row in embl_library
+for (i in 1:numberref){
+    #select PMID from embl_ref
+    myref<-embl_ref[i,1]
+    kc.pubmed<-getPubMedRef.mc(myref)
+    combined<-c(combined,(list(kc.pubmed)))
+}
+library('plyr')
+biblio<-do.call(rbind.fill,combined)
+bibliodf<-data.frame(lapply(biblio, as.character),stringsAsFactors=FALSE)
+write.csv(bibliodf,"recommended_bibliography.csv")
